@@ -6,13 +6,13 @@ import {
 let state = null;
 let connMeta = { connected: false, usingFallback: false };
 let ledger = null;
+let toastTimer = null;
 
 const SORT_KEY = "bill-ledger-sort-settled";
 let ui = {
   draft: null,
-  editingPersonIdx: null,
   formError: "",
-  participantsOpen: false,
+  toast: null,
   sortSettled: localStorage.getItem(SORT_KEY) !== "0"
 };
 
@@ -20,6 +20,15 @@ function pushState(newState) {
   state = newState;
   ledger.push(state);
   render();
+}
+
+function showToast(message) {
+  ui.toast = message;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    ui.toast = null;
+    render();
+  }, 1600);
 }
 
 /* ---------- draft (add / edit editor) helpers ---------- */
@@ -80,41 +89,6 @@ function draftToShares(d) {
 }
 
 /* ---------- actions ---------- */
-
-function addPerson() {
-  if (state.people.length >= 8) return;
-  pushState({
-    people: [...state.people, "P" + (state.people.length + 1)],
-    bills: state.bills.map((b) => ({
-      ...b,
-      participants: [...getParticipants(b), true],
-      personPaid: [...b.personPaid, false],
-      custom: [...getCustom(b), null]
-    }))
-  });
-}
-
-function removePerson() {
-  if (state.people.length <= 1) return;
-  pushState({
-    people: state.people.slice(0, -1),
-    bills: state.bills.map((b) => ({
-      ...b,
-      participants: getParticipants(b).slice(0, -1),
-      personPaid: b.personPaid.slice(0, -1),
-      custom: getCustom(b).slice(0, -1)
-    }))
-  });
-}
-
-function renamePerson(idx, name) {
-  const trimmed = (name || "").trim();
-  if (!trimmed) return;
-  pushState({
-    ...state,
-    people: state.people.map((n, i) => (i === idx ? trimmed : n))
-  });
-}
 
 function cyclePersonState(billId, idx) {
   pushState({
@@ -194,8 +168,11 @@ function commitDraft() {
     return raw !== "" && raw != null && !isNaN(v) ? v : null;
   });
   const participants = d.include.slice();
+  const isNew = d.billId == null;
+  ui.draft = null;
+  showToast(isNew ? "Bill added." : "Bill saved.");
 
-  if (d.billId == null) {
+  if (isNew) {
     pushState({
       ...state,
       bills: [
@@ -227,7 +204,6 @@ function commitDraft() {
       })
     });
   }
-  ui.draft = null;
 }
 
 /* ---------- rendering ---------- */
@@ -285,10 +261,15 @@ function render() {
         ${ui.draft && ui.draft.billId == null ? renderAddForm() : `<button class="add-toggle" data-action="show-add-form">${ICONS.plus} Add a bill</button>`}
       </div>
 
-      ${renderParticipants()}
+      <a class="link-row" href="participants.html">
+        <span class="link-row-title">${ICONS.people} Participants</span>
+        <span class="link-row-meta">${state.people.length} people ${ICONS.chevronRight}</span>
+      </a>
 
-      <div class="page-footer">Bill Ledger · v3.1</div>
+      <div class="page-footer">Bill Ledger · v3.2</div>
     </div>
+
+    ${ui.toast ? `<div class="toast">${escapeHtml(ui.toast)}</div>` : ""}
   `;
 
   attachHandlers();
@@ -303,34 +284,6 @@ function renderEmptyState() {
       </div>
     </div>
   `;
-}
-
-function renderParticipants() {
-  const open = ui.participantsOpen;
-  return `
-    <div class="participants-card ${open ? "open" : ""}">
-      <button class="participants-header" data-action="toggle-participants">
-        <span class="participants-title">${ICONS.people} Participants</span>
-        <span class="participants-caret">${ICONS.chevronRight}</span>
-      </button>
-      ${open ? `
-        <div class="participants-body">
-          ${state.people.map((p, i) => renderParticipantRow(p, i)).join("")}
-          <div class="participants-footer">
-            <button class="icon-round-btn" data-action="add-person" title="Add person">${ICONS.plus}</button>
-            ${state.people.length > 1 ? `<button class="icon-round-btn danger" data-action="remove-person" title="Remove last person">${ICONS.x}</button>` : ""}
-          </div>
-        </div>
-      ` : ""}
-    </div>
-  `;
-}
-
-function renderParticipantRow(p, i) {
-  if (ui.editingPersonIdx === i) {
-    return `<div class="participant-row"><input class="participant-name-input" id="person-input-${i}" value="${escapeAttr(p)}" data-idx="${i}" /></div>`;
-  }
-  return `<div class="participant-row"><button class="participant-name-btn" data-action="start-rename-person" data-idx="${i}">${escapeHtml(p)}</button></div>`;
 }
 
 function renderBillRow(b, idx) {
@@ -516,23 +469,10 @@ function attachHandlers() {
       const idx = el.getAttribute("data-idx");
       const personIdx = el.getAttribute("data-person-idx");
 
-      if (action === "add-person") addPerson();
-      else if (action === "remove-person") removePerson();
-      else if (action === "toggle-participants") {
-        ui.participantsOpen = !ui.participantsOpen;
-        render();
-      } else if (action === "toggle-sort") {
+      if (action === "toggle-sort") {
         ui.sortSettled = !ui.sortSettled;
         localStorage.setItem(SORT_KEY, ui.sortSettled ? "1" : "0");
         render();
-      } else if (action === "start-rename-person") {
-        ui.editingPersonIdx = Number(idx);
-        render();
-        const input = document.getElementById("person-input-" + idx);
-        if (input) {
-          input.focus();
-          input.select();
-        }
       } else if (action === "toggle-person") cyclePersonState(billId, Number(personIdx));
       else if (action === "toggle-vendor") toggleVendorPaid(billId);
       else if (action === "archive-bill") archiveBill(billId);
@@ -565,28 +505,6 @@ function attachHandlers() {
         }
       }
     });
-  });
-
-  state.people.forEach((p, i) => {
-    if (ui.editingPersonIdx === i) {
-      const input = document.getElementById("person-input-" + i);
-      if (!input) return;
-      const commit = () => {
-        renamePerson(i, input.value);
-        ui.editingPersonIdx = null;
-      };
-      input.addEventListener("blur", commit);
-      input.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") {
-          e.preventDefault();
-          commit();
-        }
-        if (e.key === "Escape") {
-          ui.editingPersonIdx = null;
-          render();
-        }
-      });
-    }
   });
 
   const draftForm = document.getElementById("draft-form");

@@ -31,6 +31,11 @@ export const firebaseConfig = {
 
 export const DATA_PATH = "billLedger";
 
+/* Practical ceiling on the participant list — high enough that it
+   never gets in the way (splitting bills with a big friend group,
+   a trip, etc.) while still keeping things sane. */
+export const MAX_PARTICIPANTS = 1000;
+
 export const DEFAULT_STATE = {
   people: ["P1", "P2", "P3", "P4"],
   bills: [
