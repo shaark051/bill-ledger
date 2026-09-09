@@ -287,7 +287,7 @@ function render() {
 
       ${renderParticipants()}
 
-      <div class="page-footer">Bill Ledger · v3.0</div>
+      <div class="page-footer">Bill Ledger · v3.1</div>
     </div>
   `;
 
@@ -367,16 +367,15 @@ function renderBillRow(b, idx) {
           </div>
           <div class="chips">
             ${state.people
-              .map((p, i) => {
-                const included = participants[i];
+              .map((p, i) => ({ p, i }))
+              .filter(({ i }) => participants[i])
+              .map(({ p, i }) => {
                 const paid = b.personPaid[i];
-                const isCustom = included && typeof custom[i] === "number";
-                const cls = !included ? "excluded" : paid ? "paid" : "unpaid";
-                const label = !included ? "− " : paid ? "✓ " : "";
-                const amtText = included ? `<span> · ${fmt(amounts[i])}${isCustom ? '<span class="chip-star">*</span>' : ""}</span>` : "";
-                const title = !included
-                  ? `${p} is not part of this bill — click to include`
-                  : `${p} owes ${fmt(amounts[i])}${isCustom ? " (set amount)" : " (even split)"} and has ${paid ? "paid" : "not paid"} — click to ${paid ? "leave out of this bill" : "mark paid"}`;
+                const isCustom = typeof custom[i] === "number";
+                const cls = paid ? "paid" : "unpaid";
+                const label = paid ? "✓ " : "";
+                const amtText = `<span> · ${fmt(amounts[i])}${isCustom ? '<span class="chip-star">*</span>' : ""}</span>`;
+                const title = `${p} owes ${fmt(amounts[i])}${isCustom ? " (set amount)" : " (even split)"} and has ${paid ? "paid" : "not paid"} — click to ${paid ? "remove from this bill" : "mark paid"}`;
                 return `
               <button class="chip ${cls}" data-action="toggle-person" data-bill-id="${b.id}" data-person-idx="${i}" title="${escapeAttr(title)}">
                 ${label}${escapeHtml(p)}${amtText}
@@ -384,6 +383,7 @@ function renderBillRow(b, idx) {
               })
               .join("")}
           </div>
+          ${participants.filter(Boolean).length === 0 ? '<div class="bill-share">No one is included in this bill — edit it to add people.</div>' : ""}
         </div>
         <div class="bill-amount-col">
           <div class="bill-amount">${fmt(b.total)}</div>

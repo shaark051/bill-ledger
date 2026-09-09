@@ -1,3 +1,12 @@
+# v3.1 — Cleaner bill rows
+
+**Previous version:** v3.0
+
+## Changed
+- People not part of a bill no longer appear on that bill at all — previously they showed up crossed out; now they're left off the chip row entirely, so you only ever see who's actually involved.
+
+---
+
 # v3.0 — Redesign & Archive
 
 **Previous version:** v2.1

@@ -228,7 +228,6 @@ button, input { font-family: inherit; }
 }
 .chip.paid { background: var(--green-tint); color: var(--green); }
 .chip.unpaid { background: var(--blue-tint); color: var(--blue); }
-.chip.excluded { background: var(--bg); color: var(--text-tertiary); text-decoration: line-through; }
 .chip-star { font-weight: 700; }
 
 .empty-state { padding: 48px 20px; text-align: center; color: var(--text-secondary); font-size: 14px; }

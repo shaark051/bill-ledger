@@ -89,13 +89,14 @@ function renderArchivedRow(b) {
           </div>
           <div class="chips">
             ${state.people
-              .map((p, i) => {
-                const included = participants[i];
+              .map((p, i) => ({ p, i }))
+              .filter(({ i }) => participants[i])
+              .map(({ p, i }) => {
                 const paid = b.personPaid[i];
-                const isCustom = included && typeof custom[i] === "number";
-                const cls = !included ? "excluded" : paid ? "paid" : "unpaid";
-                const label = !included ? "− " : paid ? "✓ " : "";
-                const amtText = included ? `<span> · ${fmt(amounts[i])}${isCustom ? '<span class="chip-star">*</span>' : ""}</span>` : "";
+                const isCustom = typeof custom[i] === "number";
+                const cls = paid ? "paid" : "unpaid";
+                const label = paid ? "✓ " : "";
+                const amtText = `<span> · ${fmt(amounts[i])}${isCustom ? '<span class="chip-star">*</span>' : ""}</span>`;
                 return `<span class="chip ${cls}">${label}${escapeHtml(p)}${amtText}</span>`;
               })
               .join("")}
