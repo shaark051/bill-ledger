@@ -124,11 +124,14 @@ button, input { font-family: inherit; }
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  row-gap: 10px;
   gap: 12px;
   margin: 22px 0 10px;
   padding: 0 2px;
 }
 .toolbar-count { font-size: 13px; color: var(--text-secondary); }
+.toolbar-toggles { display: flex; flex-wrap: wrap; gap: 16px; }
 .toolbar-toggle { display: flex; align-items: center; gap: 8px; }
 .toolbar-toggle-label { font-size: 13px; color: var(--text-secondary); }
 
@@ -158,6 +161,37 @@ button, input { font-family: inherit; }
   transition: transform 0.18s ease;
 }
 .switch[aria-pressed="true"] .switch-knob { transform: translateX(16px); }
+
+/* ---------- category bar ---------- */
+
+.category-bar { margin: 4px 0 14px; }
+.category-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.filter-chip { background: var(--bg); color: var(--text-secondary); }
+.filter-chip.active { background: var(--blue); color: #fff; }
+.filter-chip.manage-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  margin-left: 2px;
+}
+.filter-chip.manage-chip svg { width: 14px; height: 14px; }
+.filter-chip.manage-chip.active { background: var(--text); color: #fff; }
+
+.category-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--bg);
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+.category-tag svg { width: 10px; height: 10px; }
 
 /* ---------- grouped list ---------- */
 

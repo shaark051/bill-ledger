@@ -86,6 +86,7 @@ function renderArchivedRow(b) {
           <div class="bill-title-line">
             <span class="bill-name">${escapeHtml(b.name)}</span>
             <span class="bill-date">${fmtDate(b.date)}</span>
+            ${b.category ? `<span class="category-tag">${ICONS.tag}${escapeHtml(b.category)}</span>` : ""}
           </div>
           <div class="chips">
             ${state.people

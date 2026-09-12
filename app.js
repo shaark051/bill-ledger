@@ -9,11 +9,18 @@ let ledger = null;
 let toastTimer = null;
 
 const SORT_KEY = "bill-ledger-sort-settled";
+const CATEGORY_SORT_KEY = "bill-ledger-sort-category";
+const UNCATEGORIZED = "__uncat__";
 let ui = {
   draft: null,
   formError: "",
   toast: null,
-  sortSettled: localStorage.getItem(SORT_KEY) !== "0"
+  sortSettled: localStorage.getItem(SORT_KEY) !== "0",
+  sortByCategory: localStorage.getItem(CATEGORY_SORT_KEY) === "1",
+  categoryFilter: null,
+  manageCategoriesOpen: false,
+  categoryError: "",
+  newCategoryValue: ""
 };
 
 function pushState(newState) {
@@ -31,6 +38,33 @@ function showToast(message) {
   }, 1600);
 }
 
+function addCategory(rawName) {
+  const trimmed = (rawName || "").trim();
+  if (!trimmed) return;
+  const exists = state.categories.some((c) => c.toLowerCase() === trimmed.toLowerCase());
+  if (exists) {
+    ui.categoryError = `"${trimmed}" already exists.`;
+    ui.newCategoryValue = rawName;
+    render();
+    return;
+  }
+  ui.categoryError = "";
+  ui.newCategoryValue = "";
+  showToast("Category added.");
+  pushState({ ...state, categories: [...state.categories, trimmed] });
+}
+
+function removeCategory(name) {
+  if (!confirm(`Remove "${name}"? Bills using it will become uncategorized.`)) return;
+  if (ui.categoryFilter === name) ui.categoryFilter = null;
+  showToast("Category removed.");
+  pushState({
+    ...state,
+    categories: state.categories.filter((c) => c !== name),
+    bills: state.bills.map((b) => (b.category === name ? { ...b, category: null } : b))
+  });
+}
+
 /* ---------- draft (add / edit editor) helpers ---------- */
 
 function newAddDraft() {
@@ -39,6 +73,7 @@ function newAddDraft() {
     date: "",
     name: "",
     total: "",
+    category: "",
     mode: "auto",
     include: state.people.map(() => true),
     amounts: state.people.map(() => "")
@@ -54,6 +89,7 @@ function billToDraft(b) {
     date: b.date || "",
     name: b.name || "",
     total: String(b.total),
+    category: b.category || "",
     mode: hasCustom ? "custom" : "auto",
     include: participants.slice(),
     amounts: custom.map((c) => (typeof c === "number" ? String(c) : ""))
@@ -168,6 +204,7 @@ function commitDraft() {
     return raw !== "" && raw != null && !isNaN(v) ? v : null;
   });
   const participants = d.include.slice();
+  const category = d.category || null;
   const isNew = d.billId == null;
   ui.draft = null;
   showToast(isNew ? "Bill added." : "Bill saved.");
@@ -186,7 +223,8 @@ function commitDraft() {
           participants,
           personPaid: state.people.map(() => false),
           custom,
-          archived: false
+          archived: false,
+          category
         }
       ]
     });
@@ -197,7 +235,7 @@ function commitDraft() {
         if (b.id !== d.billId) return b;
         const prevPaid = b.personPaid || [];
         const personPaid = participants.map((inc, i) => (inc ? !!prevPaid[i] : false));
-        const next = { ...b, date: d.date, name: d.name.trim() || b.name, total, participants, personPaid, custom };
+        const next = { ...b, date: d.date, name: d.name.trim() || b.name, total, participants, personPaid, custom, category };
         delete next.splitMode;
         delete next.shares;
         return next;
@@ -211,15 +249,32 @@ function commitDraft() {
 function render() {
   const root = document.getElementById("app");
   if (!state) return;
-  const { totalDue, dueToReceive } = computeTotals(state.bills);
 
-  const activeBills = state.bills
-    .map((b, originalIdx) => ({ b, originalIdx }))
-    .filter((row) => !isArchived(row.b));
+  const nonArchived = state.bills.filter((b) => !isArchived(b));
+  let filtered = nonArchived;
+  if (ui.categoryFilter === UNCATEGORIZED) filtered = nonArchived.filter((b) => !b.category);
+  else if (ui.categoryFilter) filtered = nonArchived.filter((b) => b.category === ui.categoryFilter);
 
-  if (ui.sortSettled) {
-    activeBills.sort((a, b) => (isSettled(a.b) === isSettled(b.b) ? 0 : isSettled(a.b) ? 1 : -1));
-  }
+  const { totalDue, dueToReceive } = computeTotals(filtered);
+
+  const activeBills = filtered.map((b, originalIdx) => ({ b, originalIdx }));
+
+  activeBills.sort((x, y) => {
+    if (ui.categoryFilter === null && ui.sortByCategory) {
+      const ca = x.b.category || "";
+      const cb = y.b.category || "";
+      if (ca === "" && cb !== "") return 1;
+      if (cb === "" && ca !== "") return -1;
+      const cmp = ca.localeCompare(cb);
+      if (cmp !== 0) return cmp;
+    }
+    if (ui.sortSettled) {
+      const sa = isSettled(x.b);
+      const sb = isSettled(y.b);
+      if (sa !== sb) return sa ? 1 : -1;
+    }
+    return 0;
+  });
 
   root.innerHTML = `
     <div class="topbar">
@@ -249,11 +304,20 @@ function render() {
 
       <div class="toolbar">
         <span class="toolbar-count">${activeBills.length} bill${activeBills.length === 1 ? "" : "s"}</span>
-        <div class="toolbar-toggle">
-          <span class="toolbar-toggle-label">Paid bills to bottom</span>
-          <button class="switch" data-action="toggle-sort" aria-pressed="${ui.sortSettled}"><span class="switch-knob"></span></button>
+        <div class="toolbar-toggles">
+          <div class="toolbar-toggle">
+            <span class="toolbar-toggle-label">Paid to bottom</span>
+            <button class="switch" data-action="toggle-sort" aria-pressed="${ui.sortSettled}"><span class="switch-knob"></span></button>
+          </div>
+          ${ui.categoryFilter === null ? `
+          <div class="toolbar-toggle">
+            <span class="toolbar-toggle-label">Group by category</span>
+            <button class="switch" data-action="toggle-sort-category" aria-pressed="${ui.sortByCategory}"><span class="switch-knob"></span></button>
+          </div>` : ""}
         </div>
       </div>
+
+      ${renderCategoryBar()}
 
       ${activeBills.length === 0 ? renderEmptyState() : `<div class="list-group">${activeBills.map((row, i) => renderBillRow(row.b, i)).join("")}</div>`}
 
@@ -266,7 +330,7 @@ function render() {
         <span class="link-row-meta">${state.people.length} people ${ICONS.chevronRight}</span>
       </a>
 
-      <div class="page-footer">Bill Ledger · v3.2</div>
+      <div class="page-footer">Bill Ledger · v3.3</div>
     </div>
 
     ${ui.toast ? `<div class="toast">${escapeHtml(ui.toast)}</div>` : ""}
@@ -275,12 +339,57 @@ function render() {
   attachHandlers();
 }
 
+function renderCategoryBar() {
+  const cats = state.categories;
+  return `
+    <div class="category-bar">
+      <div class="category-chips">
+        <button class="chip filter-chip ${ui.categoryFilter === null ? "active" : ""}" data-action="filter-category" data-category="">All</button>
+        <button class="chip filter-chip ${ui.categoryFilter === UNCATEGORIZED ? "active" : ""}" data-action="filter-category" data-category="${UNCATEGORIZED}">Uncategorized</button>
+        ${cats
+          .map(
+            (c) =>
+              `<button class="chip filter-chip ${ui.categoryFilter === c ? "active" : ""}" data-action="filter-category" data-category="${escapeAttr(c)}">${escapeHtml(c)}</button>`
+          )
+          .join("")}
+        <button class="chip filter-chip manage-chip ${ui.manageCategoriesOpen ? "active" : ""}" data-action="toggle-manage-categories" title="Add or remove categories">${ICONS.gear}</button>
+      </div>
+      ${ui.manageCategoriesOpen ? renderManageCategories() : ""}
+    </div>
+  `;
+}
+
+function renderManageCategories() {
+  return `
+    <div class="form-card" style="margin-top:10px;">
+      ${
+        state.categories.length === 0
+          ? '<div class="empty-state" style="padding:8px 0 16px;">No categories yet — add one below.</div>'
+          : state.categories
+              .map(
+                (c) => `
+        <div class="person-list-row" style="padding:9px 0;">
+          <span>${escapeHtml(c)}</span>
+          <button class="icon-btn danger" data-action="remove-category" data-category="${escapeAttr(c)}" title="Remove ${escapeAttr(c)}">${ICONS.x}</button>
+        </div>`
+              )
+              .join("")
+      }
+      <form id="category-form" class="form-row" style="margin-top:${state.categories.length ? "10" : "0"}px;">
+        <input type="text" class="field" id="new-category-input" placeholder="New category" style="flex:1;" value="${escapeAttr(ui.newCategoryValue || "")}" />
+        <button type="submit" class="btn-secondary">Add</button>
+      </form>
+      ${ui.categoryError ? `<div class="form-error">${escapeHtml(ui.categoryError)}</div>` : ""}
+    </div>
+  `;
+}
+
 function renderEmptyState() {
   return `
     <div class="list-group">
       <div class="empty-state">
         <div class="empty-state-icon">${ICONS.inbox}</div>
-        No active bills — add your first one below.
+        ${ui.categoryFilter !== null ? "No bills match this filter." : "No active bills — add your first one below."}
       </div>
     </div>
   `;
@@ -317,6 +426,7 @@ function renderBillRow(b, idx) {
           <div class="bill-title-line">
             <span class="bill-name">${escapeHtml(b.name)}</span>
             <span class="bill-date">${fmtDate(b.date)}${settled ? " · Settled" : ""}</span>
+            ${b.category ? `<span class="category-tag">${ICONS.tag}${escapeHtml(b.category)}</span>` : ""}
           </div>
           <div class="chips">
             ${state.people
@@ -362,6 +472,7 @@ function renderEditRow(b, idx) {
           <input type="date" class="field" id="draft-date" value="${escapeAttr(d.date)}" />
           <input type="text" class="field" id="draft-name" value="${escapeAttr(d.name)}" style="flex:1; min-width:120px;" placeholder="Bill name" />
           <input type="number" step="0.01" class="field" id="draft-total" value="${escapeAttr(d.total)}" style="width:90px;" placeholder="0.00" />
+          ${renderCategorySelect(d)}
         </div>
         ${renderSplitEditor(d)}
         ${ui.formError ? `<div class="form-error">${escapeHtml(ui.formError)}</div>` : ""}
@@ -383,6 +494,7 @@ function renderAddForm() {
           <input type="date" class="field" id="draft-date" value="${escapeAttr(d.date)}" />
           <input type="text" class="field" id="draft-name" placeholder="Bill name" style="flex:1; min-width:140px;" value="${escapeAttr(d.name)}" />
           <input type="number" step="0.01" min="0" class="field" id="draft-total" placeholder="0.00" style="width:100px;" value="${escapeAttr(d.total)}" />
+          ${renderCategorySelect(d)}
         </div>
         ${renderSplitEditor(d)}
         ${ui.formError ? `<div class="form-error">${escapeHtml(ui.formError)}</div>` : ""}
@@ -392,6 +504,15 @@ function renderAddForm() {
         </div>
       </form>
     </div>
+  `;
+}
+
+function renderCategorySelect(d) {
+  return `
+    <select class="field" id="draft-category" style="max-width:150px;">
+      <option value="">No category</option>
+      ${state.categories.map((c) => `<option value="${escapeAttr(c)}" ${d.category === c ? "selected" : ""}>${escapeHtml(c)}</option>`).join("")}
+    </select>
   `;
 }
 
@@ -473,6 +594,20 @@ function attachHandlers() {
         ui.sortSettled = !ui.sortSettled;
         localStorage.setItem(SORT_KEY, ui.sortSettled ? "1" : "0");
         render();
+      } else if (action === "toggle-sort-category") {
+        ui.sortByCategory = !ui.sortByCategory;
+        localStorage.setItem(CATEGORY_SORT_KEY, ui.sortByCategory ? "1" : "0");
+        render();
+      } else if (action === "filter-category") {
+        const cat = el.getAttribute("data-category");
+        ui.categoryFilter = cat === "" ? null : cat;
+        render();
+      } else if (action === "toggle-manage-categories") {
+        ui.manageCategoriesOpen = !ui.manageCategoriesOpen;
+        ui.categoryError = "";
+        render();
+      } else if (action === "remove-category") {
+        removeCategory(el.getAttribute("data-category"));
       } else if (action === "toggle-person") cyclePersonState(billId, Number(personIdx));
       else if (action === "toggle-vendor") toggleVendorPaid(billId);
       else if (action === "archive-bill") archiveBill(billId);
@@ -520,6 +655,8 @@ function attachHandlers() {
         d.total = e.target.value;
         refreshEditor();
       });
+    const dCategory = document.getElementById("draft-category");
+    if (dCategory) dCategory.addEventListener("change", (e) => (d.category = e.target.value));
     d.include.forEach((_, i) => {
       const amt = document.getElementById("amt-" + i);
       if (amt)
@@ -531,6 +668,15 @@ function attachHandlers() {
     draftForm.addEventListener("submit", (e) => {
       e.preventDefault();
       commitDraft();
+    });
+  }
+
+  const categoryForm = document.getElementById("category-form");
+  if (categoryForm) {
+    categoryForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const input = document.getElementById("new-category-input");
+      addCategory(input ? input.value : "");
     });
   }
 }

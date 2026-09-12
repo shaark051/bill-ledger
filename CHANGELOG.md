@@ -1,5 +1,20 @@
 # Changelog
 
+## v3.3 — Categories
+
+**Previous version:** v3.2
+
+### New
+- **Bill categories** — assign a category to any bill from the add/edit form (e.g. Utilities, Rent, Groceries). Manage the category list (add or remove) from a small panel above the bill list — tap the gear icon next to the filter chips.
+- **Filter by category** — a row of chips ("All", "Uncategorized", plus each category you've added) filters the bill list to just that category. Totals at the top update to match whatever's currently filtered.
+- **Group by category** — a toggle (shown when viewing "All") sorts the list by category name, with "Paid to bottom" still applied within each group if that's also on.
+
+### Notes
+- Existing bills without a category just show as "Uncategorized" — no migration needed, nothing breaks.
+- Removing a category doesn't touch the bills that used it — they just drop back to Uncategorized.
+
+---
+
 ## v3.2 — Participants page, higher limit, fixed save flow
 
 **Previous version:** v3.1

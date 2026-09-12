@@ -38,10 +38,11 @@ export const MAX_PARTICIPANTS = 1000;
 
 export const DEFAULT_STATE = {
   people: ["P1", "P2", "P3", "P4"],
+  categories: ["Utilities", "Rent", "Groceries"],
   bills: [
-    { id: "b1", date: "2026-08-08", name: "Internet", total: 79, vendorPaid: true, participants: [true, true, true, true], personPaid: [true, true, true, false], custom: [null, null, null, null], archived: false },
-    { id: "b2", date: "2026-08-24", name: "Electricity", total: 585.33, vendorPaid: false, participants: [true, true, true, true], personPaid: [false, false, false, false], custom: [null, null, null, null], archived: false },
-    { id: "b3", date: "", name: "Gas", total: 0, vendorPaid: false, participants: [true, true, true, true], personPaid: [false, false, false, false], custom: [null, null, null, null], archived: false }
+    { id: "b1", date: "2026-08-08", name: "Internet", total: 79, vendorPaid: true, participants: [true, true, true, true], personPaid: [true, true, true, false], custom: [null, null, null, null], archived: false, category: "Utilities" },
+    { id: "b2", date: "2026-08-24", name: "Electricity", total: 585.33, vendorPaid: false, participants: [true, true, true, true], personPaid: [false, false, false, false], custom: [null, null, null, null], archived: false, category: "Utilities" },
+    { id: "b3", date: "", name: "Gas", total: 0, vendorPaid: false, participants: [true, true, true, true], personPaid: [false, false, false, false], custom: [null, null, null, null], archived: false, category: "Utilities" }
   ]
 };
 
@@ -152,7 +153,8 @@ export function connectLedger(onChange) {
     let state;
     try {
       const raw = localStorage.getItem("bill-ledger-data");
-      state = raw ? JSON.parse(raw) : DEFAULT_STATE;
+      const parsed = raw ? JSON.parse(raw) : DEFAULT_STATE;
+      state = Array.isArray(parsed.categories) ? parsed : { ...parsed, categories: [] };
     } catch (e) {
       state = DEFAULT_STATE;
     }
@@ -180,7 +182,7 @@ export function connectLedger(onChange) {
           meta.usingFallback = false;
           let state;
           if (val && Array.isArray(val.people) && Array.isArray(val.bills)) {
-            state = val;
+            state = Array.isArray(val.categories) ? val : { ...val, categories: [] };
           } else {
             state = DEFAULT_STATE;
             fbSet(dbRef, state);
@@ -231,5 +233,7 @@ export const ICONS = {
   chevronLeft: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>',
   chevronRight: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>',
   people: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
-  inbox: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m22 12-4 0-2 3h-8l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11Z"/></svg>'
+  inbox: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m22 12-4 0-2 3h-8l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11Z"/></svg>',
+  tag: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41 11 3.83A2 2 0 0 0 9.59 3.24H4a1 1 0 0 0-1 1v5.59a2 2 0 0 0 .59 1.41l9.58 9.58a2 2 0 0 0 2.83 0l4.59-4.59a2 2 0 0 0 0-2.83Z"/><circle cx="7.5" cy="7.5" r="1.2" fill="currentColor" stroke="none"/></svg>',
+  gear: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>'
 };
