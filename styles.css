@@ -204,8 +204,25 @@ button, input { font-family: inherit; }
 .bill-row { padding: 14px 18px; border-bottom: 1px solid var(--hairline); }
 .bill-row:last-child { border-bottom: none; }
 .bill-row.settled { background: var(--surface-alt); }
+.bill-row.dragging { background: var(--surface); box-shadow: 0 8px 24px rgba(0,0,0,0.16); border-radius: var(--radius-md); position: relative; z-index: 5; }
 
-.bill-row-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.bill-row-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.drag-handle {
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  padding: 6px 2px;
+  margin-top: 2px;
+  cursor: grab;
+  touch-action: none;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+}
+.drag-handle svg { width: 16px; height: 16px; }
+.drag-handle:active { cursor: grabbing; }
+.reorder-hint { font-size: 12px; color: var(--text-tertiary); margin: -4px 0 10px 2px; }
+.quick-add-row { display: flex; gap: 8px; margin-top: 12px; }
 .bill-main { min-width: 0; flex: 1; }
 .bill-title-line { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
 .bill-name { font-size: 16px; font-weight: 600; }

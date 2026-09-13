@@ -1,6 +1,6 @@
 import {
   connectLedger, computeShares, computeTotals, getParticipants, getCustom,
-  isArchived, isSettled, fmt, fmtDate, genId, escapeHtml, escapeAttr, ICONS
+  isArchived, isSettled, fmt, fmtDate, genId, escapeHtml, escapeAttr, ICONS, MAX_PARTICIPANTS
 } from "./data.js";
 
 let state = null;
@@ -20,7 +20,9 @@ let ui = {
   categoryFilter: null,
   manageCategoriesOpen: false,
   categoryError: "",
-  newCategoryValue: ""
+  newCategoryValue: "",
+  quickAddError: "",
+  quickAddValue: ""
 };
 
 function pushState(newState) {
@@ -63,6 +65,64 @@ function removeCategory(name) {
     categories: state.categories.filter((c) => c !== name),
     bills: state.bills.map((b) => (b.category === name ? { ...b, category: null } : b))
   });
+}
+
+/* Adds someone straight from the bill editor. Unlike adding from the
+   Participants page (which includes the new person in every bill by
+   default), a person added this way only shows up on the bill you
+   added them from — handy for a one-off split with someone outside
+   the household. They still become a full participant you can pick
+   for other bills later; they're just not auto-included everywhere. */
+function quickAddParticipant(rawName) {
+  const trimmed = (rawName || "").trim();
+  if (!trimmed) return;
+  if (state.people.length >= MAX_PARTICIPANTS) {
+    ui.quickAddError = `You've hit the ${MAX_PARTICIPANTS}-person limit.`;
+    ui.quickAddValue = rawName;
+    render();
+    return;
+  }
+  const exists = state.people.some((p) => p.toLowerCase() === trimmed.toLowerCase());
+  if (exists) {
+    ui.quickAddError = `"${trimmed}" is already a participant.`;
+    ui.quickAddValue = rawName;
+    render();
+    return;
+  }
+  ui.quickAddError = "";
+  ui.quickAddValue = "";
+  if (ui.draft) {
+    ui.draft.include = [...ui.draft.include, true];
+    ui.draft.amounts = [...ui.draft.amounts, ""];
+  }
+  showToast(`${trimmed} added to this bill.`);
+  pushState({
+    ...state,
+    people: [...state.people, trimmed],
+    bills: state.bills.map((b) => ({
+      ...b,
+      participants: [...getParticipants(b), false],
+      personPaid: [...b.personPaid, false],
+      custom: [...getCustom(b), null]
+    }))
+  });
+}
+
+/* Reassigns the bills currently visible in the list (which may be a
+   filtered subset) to a new relative order, while leaving bills not
+   in that subset in their original slots in the full array. */
+function reorderFiltered(fullBills, newOrderIds) {
+  const idSet = new Set(newOrderIds);
+  let ptr = 0;
+  return fullBills.map((b) => {
+    if (!idSet.has(b.id)) return b;
+    const nextId = newOrderIds[ptr++];
+    return fullBills.find((x) => x.id === nextId);
+  });
+}
+
+function commitReorder(newOrderIds) {
+  pushState({ ...state, bills: reorderFiltered(state.bills, newOrderIds) });
 }
 
 /* ---------- draft (add / edit editor) helpers ---------- */
@@ -258,6 +318,7 @@ function render() {
   const { totalDue, dueToReceive } = computeTotals(filtered);
 
   const activeBills = filtered.map((b, originalIdx) => ({ b, originalIdx }));
+  const reorderable = !ui.sortSettled && !ui.sortByCategory;
 
   activeBills.sort((x, y) => {
     if (ui.categoryFilter === null && ui.sortByCategory) {
@@ -319,7 +380,13 @@ function render() {
 
       ${renderCategoryBar()}
 
-      ${activeBills.length === 0 ? renderEmptyState() : `<div class="list-group">${activeBills.map((row, i) => renderBillRow(row.b, i)).join("")}</div>`}
+      ${!reorderable && activeBills.length > 1 ? `<div class="reorder-hint">Turn off the sorting toggles above to drag bills into your own order.</div>` : ""}
+
+      ${
+        activeBills.length === 0
+          ? renderEmptyState()
+          : `<div class="list-group" ${reorderable ? 'data-reorderable="true"' : ""}>${activeBills.map((row) => renderBillRow(row.b, reorderable)).join("")}</div>`
+      }
 
       <div class="add-card">
         ${ui.draft && ui.draft.billId == null ? renderAddForm() : `<button class="add-toggle" data-action="show-add-form">${ICONS.plus} Add a bill</button>`}
@@ -330,13 +397,73 @@ function render() {
         <span class="link-row-meta">${state.people.length} people ${ICONS.chevronRight}</span>
       </a>
 
-      <div class="page-footer">Bill Ledger · v3.3</div>
+      <div class="page-footer">Bill Ledger · v3.4</div>
     </div>
 
     ${ui.toast ? `<div class="toast">${escapeHtml(ui.toast)}</div>` : ""}
   `;
 
   attachHandlers();
+  setupDragReorder();
+}
+
+/* Pointer-based drag reorder (works on touch and mouse, unlike native
+   HTML5 drag-and-drop which mobile Safari doesn't support well).
+   Dragging moves the actual row in the DOM as you go; on release, the
+   new visual order is written back into state.bills. */
+function setupDragReorder() {
+  const listGroup = document.querySelector('.list-group[data-reorderable="true"]');
+  if (!listGroup) return;
+
+  listGroup.querySelectorAll(".drag-handle").forEach((handle) => {
+    handle.addEventListener("pointerdown", (e) => {
+      const row = handle.closest(".bill-row");
+      if (!row) return;
+      e.preventDefault();
+      let lastY = e.clientY;
+      row.classList.add("dragging");
+      handle.setPointerCapture(e.pointerId);
+
+      const onMove = (ev) => {
+        const dy = ev.clientY - lastY;
+        row.style.transform = `translateY(${dy}px)`;
+
+        const rowRect = row.getBoundingClientRect();
+        const rowMid = rowRect.top + rowRect.height / 2;
+        const siblings = Array.from(listGroup.children).filter((r) => r !== row);
+
+        for (const other of siblings) {
+          const r = other.getBoundingClientRect();
+          const otherMid = r.top + r.height / 2;
+          const rowIsBefore = !!(row.compareDocumentPosition(other) & Node.DOCUMENT_POSITION_FOLLOWING);
+          if (rowIsBefore && rowMid > otherMid) {
+            listGroup.insertBefore(row, other.nextSibling);
+            lastY = ev.clientY;
+            row.style.transform = "translateY(0px)";
+            break;
+          } else if (!rowIsBefore && rowMid < otherMid) {
+            listGroup.insertBefore(row, other);
+            lastY = ev.clientY;
+            row.style.transform = "translateY(0px)";
+            break;
+          }
+        }
+      };
+
+      const onUp = (ev) => {
+        row.classList.remove("dragging");
+        row.style.transform = "";
+        handle.releasePointerCapture(e.pointerId);
+        handle.removeEventListener("pointermove", onMove);
+        handle.removeEventListener("pointerup", onUp);
+        const newOrderIds = Array.from(listGroup.children).map((r) => r.getAttribute("data-bill-id"));
+        commitReorder(newOrderIds);
+      };
+
+      handle.addEventListener("pointermove", onMove);
+      handle.addEventListener("pointerup", onUp);
+    });
+  });
 }
 
 function renderCategoryBar() {
@@ -395,9 +522,9 @@ function renderEmptyState() {
   `;
 }
 
-function renderBillRow(b, idx) {
+function renderBillRow(b, reorderable) {
   if (ui.draft && ui.draft.billId === b.id) {
-    return renderEditRow(b, idx);
+    return renderEditRow(b);
   }
   const { amounts, per, splitCount, customCount, over, mismatch } = computeShares(b);
   const participants = getParticipants(b);
@@ -420,8 +547,9 @@ function renderBillRow(b, idx) {
   else if (mismatch) shareText = "custom amounts don't match total";
 
   return `
-    <div class="bill-row ${settled ? "settled" : ""}">
+    <div class="bill-row ${settled ? "settled" : ""}" data-bill-id="${b.id}">
       <div class="bill-row-top">
+        ${reorderable ? `<button class="drag-handle" title="Drag to reorder">${ICONS.grip}</button>` : ""}
         <div class="bill-main">
           <div class="bill-title-line">
             <span class="bill-name">${escapeHtml(b.name)}</span>
@@ -463,10 +591,10 @@ function renderBillRow(b, idx) {
   `;
 }
 
-function renderEditRow(b, idx) {
+function renderEditRow(b) {
   const d = ui.draft;
   return `
-    <div class="bill-row">
+    <div class="bill-row" data-bill-id="${b.id}">
       <form id="draft-form">
         <div class="form-row">
           <input type="date" class="field" id="draft-date" value="${escapeAttr(d.date)}" />
@@ -544,6 +672,11 @@ function renderSplitEditor(d) {
         </div>`;
         })
         .join("")}
+      <div class="quick-add-row">
+        <input type="text" class="field" id="quick-person-input" placeholder="Add someone new to this bill" style="flex:1;" value="${escapeAttr(ui.quickAddValue || "")}" ${state.people.length >= MAX_PARTICIPANTS ? "disabled" : ""} />
+        <button type="button" class="btn-secondary" data-action="quick-add-person" ${state.people.length >= MAX_PARTICIPANTS ? "disabled" : ""}>${ICONS.plus} Add</button>
+      </div>
+      ${ui.quickAddError ? `<div class="form-error">${escapeHtml(ui.quickAddError)}</div>` : ""}
       <div class="preview-text${res.over || res.mismatch ? " warn" : ""}" id="editor-preview">${escapeHtml(editorPreviewText(res))}</div>
     </div>
   `;
@@ -608,6 +741,9 @@ function attachHandlers() {
         render();
       } else if (action === "remove-category") {
         removeCategory(el.getAttribute("data-category"));
+      } else if (action === "quick-add-person") {
+        const input = document.getElementById("quick-person-input");
+        quickAddParticipant(input ? input.value : "");
       } else if (action === "toggle-person") cyclePersonState(billId, Number(personIdx));
       else if (action === "toggle-vendor") toggleVendorPaid(billId);
       else if (action === "archive-bill") archiveBill(billId);
@@ -657,6 +793,14 @@ function attachHandlers() {
       });
     const dCategory = document.getElementById("draft-category");
     if (dCategory) dCategory.addEventListener("change", (e) => (d.category = e.target.value));
+    const quickInput = document.getElementById("quick-person-input");
+    if (quickInput)
+      quickInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          quickAddParticipant(quickInput.value);
+        }
+      });
     d.include.forEach((_, i) => {
       const amt = document.getElementById("amt-" + i);
       if (amt)

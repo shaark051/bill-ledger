@@ -1,5 +1,21 @@
 # Changelog
 
+## v3.4 — Drag to reorder, quick-add participants
+
+**Previous version:** v3.3
+
+### New
+- **Drag to reorder bills** — a grip handle on the left of each bill lets you drag it into your own custom order (works with touch on mobile, not just mouse on desktop). Only available when "Paid to bottom" and "Group by category" are both off, since either of those already imposes its own order — a small hint appears when that's the case.
+- **Add a participant straight from the bill form** — while adding or editing a bill, a new "Add someone new to this bill" field in the split editor lets you add a person on the spot instead of visiting the Participants page first.
+
+### Changed
+- People added via the bill form default to **only being included on that bill** — they won't automatically show up checked on your other existing bills, unlike people added from the Participants page (who still default to included everywhere, as before). This is meant for splitting a one-off bill with someone outside the household without them cluttering every other bill. They're still a full participant afterward — you can include them on other bills anytime, or remove them entirely from the Participants page when you're done.
+
+### Notes
+- The 1000-person cap applies to quick-add too, same as the Participants page.
+
+---
+
 ## v3.3 — Categories
 
 **Previous version:** v3.2
