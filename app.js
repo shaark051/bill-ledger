@@ -380,12 +380,12 @@ function render() {
 
       ${renderCategoryBar()}
 
-      ${!reorderable && activeBills.length > 1 ? `<div class="reorder-hint">Turn off the sorting toggles above to drag bills into your own order.</div>` : ""}
+      ${!reorderable && activeBills.length > 1 ? `<div class="reorder-hint">${ICONS.grip} Turn off both sorting toggles above to drag bills into your own order.</div>` : ""}
 
       ${
         activeBills.length === 0
           ? renderEmptyState()
-          : `<div class="list-group" ${reorderable ? 'data-reorderable="true"' : ""}>${activeBills.map((row) => renderBillRow(row.b, reorderable)).join("")}</div>`
+          : `<div class="list-group" data-reorderable="${reorderable}">${activeBills.map((row) => renderBillRow(row.b, reorderable)).join("")}</div>`
       }
 
       <div class="add-card">
@@ -397,7 +397,7 @@ function render() {
         <span class="link-row-meta">${state.people.length} people ${ICONS.chevronRight}</span>
       </a>
 
-      <div class="page-footer">Bill Ledger · v3.4</div>
+      <div class="page-footer">Bill Ledger · v3.5</div>
     </div>
 
     ${ui.toast ? `<div class="toast">${escapeHtml(ui.toast)}</div>` : ""}
@@ -450,18 +450,31 @@ function setupDragReorder() {
         }
       };
 
-      const onUp = (ev) => {
+      const cleanup = () => {
         row.classList.remove("dragging");
         row.style.transform = "";
-        handle.releasePointerCapture(e.pointerId);
+        try {
+          handle.releasePointerCapture(e.pointerId);
+        } catch (err) {}
         handle.removeEventListener("pointermove", onMove);
         handle.removeEventListener("pointerup", onUp);
+        handle.removeEventListener("pointercancel", onCancel);
+      };
+
+      const onUp = () => {
         const newOrderIds = Array.from(listGroup.children).map((r) => r.getAttribute("data-bill-id"));
+        cleanup();
         commitReorder(newOrderIds);
+      };
+
+      const onCancel = () => {
+        cleanup();
+        render();
       };
 
       handle.addEventListener("pointermove", onMove);
       handle.addEventListener("pointerup", onUp);
+      handle.addEventListener("pointercancel", onCancel);
     });
   });
 }
@@ -549,7 +562,7 @@ function renderBillRow(b, reorderable) {
   return `
     <div class="bill-row ${settled ? "settled" : ""}" data-bill-id="${b.id}">
       <div class="bill-row-top">
-        ${reorderable ? `<button class="drag-handle" title="Drag to reorder">${ICONS.grip}</button>` : ""}
+        <button class="drag-handle ${reorderable ? "" : "disabled"}" title="${reorderable ? "Drag to reorder" : "Turn off both sorting toggles to reorder manually"}" ${reorderable ? "" : "tabindex=\"-1\" aria-disabled=\"true\""}>${ICONS.grip}</button>
         <div class="bill-main">
           <div class="bill-title-line">
             <span class="bill-name">${escapeHtml(b.name)}</span>

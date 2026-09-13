@@ -1,5 +1,15 @@
 # Changelog
 
+## v3.5 — Fixed drag-to-reorder not appearing
+
+**Previous version:** v3.4
+
+### Fixed
+- **Drag handles were invisible by default.** Dragging only works when both "Paid to bottom" and "Group by category" are switched off — but "Paid to bottom" defaults to **on**, so on a fresh load the drag handles never showed up at all, which looked like the feature just didn't work. The handle now always shows on every bill; when sorting is active it's greyed out with a tooltip explaining why, and a visible banner above the list says "Turn off both sorting toggles above to drag bills into your own order." Turn both toggles off and the handles light up and work normally.
+- Hardened the drag code to clean up properly if a drag gets interrupted mid-gesture (e.g. the OS momentarily steals the touch) — previously this could leave a row stuck in a half-dragged state.
+
+---
+
 ## v3.4 — Drag to reorder, quick-add participants
 
 **Previous version:** v3.3
