@@ -1,6 +1,6 @@
 import {
   connectLedger, computeShares, computeTotals, getParticipants, getCustom,
-  isArchived, isSettled, fmt, fmtDate, genId, escapeHtml, escapeAttr, ICONS, MAX_PARTICIPANTS
+  isArchived, isSettled, fmt, fmtDate, genId, escapeHtml, escapeAttr, ICONS, MAX_PARTICIPANTS, APP_VERSION
 } from "./data.js";
 
 let state = null;
@@ -397,7 +397,7 @@ function render() {
         <span class="link-row-meta">${state.people.length} people ${ICONS.chevronRight}</span>
       </a>
 
-      <div class="page-footer">Bill Ledger · v3.5</div>
+      <div class="page-footer">Bill Ledger · v${APP_VERSION}</div>
     </div>
 
     ${ui.toast ? `<div class="toast">${escapeHtml(ui.toast)}</div>` : ""}

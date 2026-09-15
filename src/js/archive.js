@@ -1,6 +1,6 @@
 import {
   connectLedger, computeShares, getParticipants, getCustom,
-  isArchived, fmt, fmtDate, escapeHtml, ICONS
+  isArchived, fmt, fmtDate, escapeHtml, ICONS, APP_VERSION
 } from "./data.js";
 
 let state = null;
@@ -50,7 +50,7 @@ function render() {
 
     <div class="container">
       ${archivedBills.length === 0 ? renderEmptyState() : `<div class="list-group" style="margin-top:20px;">${archivedBills.map((b) => renderArchivedRow(b)).join("")}</div>`}
-      <div class="page-footer">Archived bills don't count toward your totals on the ledger.</div>
+      <div class="page-footer">Bill Ledger · v${APP_VERSION} · Archived bills don't count toward your totals on the ledger.</div>
     </div>
   `;
 
