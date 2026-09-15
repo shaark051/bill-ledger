@@ -13,9 +13,8 @@
       click the </> (web) icon to register a web app.
    4. Copy the firebaseConfig object it gives you and paste it below,
       replacing the placeholder values.
-   5. Upload index.html, archive.html, styles.css, data.js, app.js and
-      archive.js together to your static host (they must all sit in
-      the same folder, since the pages reference each other by name).
+   5. Deploy index.html, archive.html, participants.html, and the src/
+      directory together to your static web host.
    ============================================================ */
 
 export const firebaseConfig = {
@@ -28,6 +27,8 @@ export const firebaseConfig = {
   appId: "1:961216833885:web:d0d284e1d8e2b88d77a0b4",
   measurementId: "G-HC2GWBNR0M"
 };
+
+export const APP_VERSION = "3.5";
 
 export const DATA_PATH = "billLedger";
 

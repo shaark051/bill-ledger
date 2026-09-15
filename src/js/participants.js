@@ -1,5 +1,5 @@
 import {
-  connectLedger, getParticipants, getCustom, MAX_PARTICIPANTS, escapeHtml, escapeAttr, ICONS
+  connectLedger, getParticipants, getCustom, MAX_PARTICIPANTS, escapeHtml, escapeAttr, ICONS, APP_VERSION
 } from "./data.js";
 
 let state = null;
@@ -102,7 +102,7 @@ function render() {
         </button>
       </div>
 
-      <div class="page-footer">People here are available to add to any bill · up to ${MAX_PARTICIPANTS}</div>
+      <div class="page-footer">Bill Ledger · v${APP_VERSION} · People here are available to add to any bill (up to ${MAX_PARTICIPANTS})</div>
     </div>
 
     ${ui.toast ? `<div class="toast">${escapeHtml(ui.toast)}</div>` : ""}
