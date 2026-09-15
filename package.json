@@ -1,0 +1,22 @@
+{
+  "name": "household-bills",
+  "version": "3.5.0",
+  "description": "Simple household bill tracker and splitter",
+  "main": "src/js/app.js",
+  "scripts": {
+    "start": "npx serve .",
+    "build": "echo 'No build step required'"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sharierarko-business/household-bills.git"
+  },
+  "keywords": [
+    "bill-tracker",
+    "bill-splitter",
+    "household",
+    "finance"
+  ],
+  "author": "",
+  "license": "ISC"
+}
