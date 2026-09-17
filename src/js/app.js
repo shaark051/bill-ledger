@@ -22,7 +22,9 @@ let ui = {
   categoryError: "",
   newCategoryValue: "",
   quickAddError: "",
-  quickAddValue: ""
+  quickAddValue: "",
+  quickCategoryError: "",
+  quickCategoryValue: ""
 };
 
 function pushState(newState) {
@@ -108,6 +110,29 @@ function quickAddParticipant(rawName) {
   });
 }
 
+function quickAddCategory(rawName) {
+  const trimmed = (rawName || "").trim();
+  if (!trimmed) return;
+  const existingCat = state.categories.find((c) => c.toLowerCase() === trimmed.toLowerCase());
+  let newCategories = state.categories;
+  let catName = trimmed;
+  if (existingCat) {
+    catName = existingCat;
+  } else {
+    newCategories = [...state.categories, trimmed];
+  }
+  ui.quickCategoryError = "";
+  ui.quickCategoryValue = "";
+  if (ui.draft) {
+    ui.draft.category = catName;
+  }
+  showToast(`Category "${catName}" assigned.`);
+  pushState({
+    ...state,
+    categories: newCategories
+  });
+}
+
 /* Reassigns the bills currently visible in the list (which may be a
    filtered subset) to a new relative order, while leaving bills not
    in that subset in their original slots in the full array. */
@@ -135,7 +160,7 @@ function newAddDraft() {
     total: "",
     category: "",
     mode: "auto",
-    include: state.people.map(() => true),
+    include: state.people.map(() => false),
     amounts: state.people.map(() => "")
   };
 }
@@ -650,10 +675,14 @@ function renderAddForm() {
 
 function renderCategorySelect(d) {
   return `
-    <select class="field" id="draft-category" style="max-width:150px;">
-      <option value="">No category</option>
-      ${state.categories.map((c) => `<option value="${escapeAttr(c)}" ${d.category === c ? "selected" : ""}>${escapeHtml(c)}</option>`).join("")}
-    </select>
+    <div style="display:flex; gap:6px; align-items:center;">
+      <select class="field" id="draft-category" style="max-width:150px;">
+        <option value="">No category</option>
+        ${state.categories.map((c) => `<option value="${escapeAttr(c)}" ${d.category === c ? "selected" : ""}>${escapeHtml(c)}</option>`).join("")}
+      </select>
+      <input type="text" class="field" id="quick-category-input" placeholder="New category" style="width:110px;" value="${escapeAttr(ui.quickCategoryValue || "")}" />
+      <button type="button" class="btn-secondary" data-action="quick-add-category">${ICONS.plus}</button>
+    </div>
   `;
 }
 
@@ -757,9 +786,14 @@ function attachHandlers() {
       } else if (action === "quick-add-person") {
         const input = document.getElementById("quick-person-input");
         quickAddParticipant(input ? input.value : "");
+      } else if (action === "quick-add-category") {
+        const input = document.getElementById("quick-category-input");
+        quickAddCategory(input ? input.value : "");
       } else if (action === "toggle-person") cyclePersonState(billId, Number(personIdx));
       else if (action === "toggle-vendor") toggleVendorPaid(billId);
-      else if (action === "archive-bill") archiveBill(billId);
+      else if (action === "archive-bill") {
+        if (confirm("Archive this bill? You can view or restore it anytime from the Archive page.")) archiveBill(billId);
+      }
       else if (action === "delete-bill") {
         if (confirm("Delete this bill? This can't be undone. Use Archive if you just want it out of sight.")) deleteBill(billId);
       } else if (action === "start-edit") {
@@ -812,6 +846,14 @@ function attachHandlers() {
         if (e.key === "Enter") {
           e.preventDefault();
           quickAddParticipant(quickInput.value);
+        }
+      });
+    const quickCatInput = document.getElementById("quick-category-input");
+    if (quickCatInput)
+      quickCatInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          quickAddCategory(quickCatInput.value);
         }
       });
     d.include.forEach((_, i) => {

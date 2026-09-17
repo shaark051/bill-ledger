@@ -4,7 +4,8 @@
   "description": "Simple household bill tracker and splitter",
   "main": "src/js/app.js",
   "scripts": {
-    "start": "npx serve ."
+    "start": "npx serve .",
+    "build": "echo 'No build step required'"
   },
   "repository": {
     "type": "git",
